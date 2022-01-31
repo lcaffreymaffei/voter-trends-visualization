@@ -1,0 +1,467 @@
+---
+title: 'EDUC 423A/SOC 302A: Assignment 2'
+author: "Lucy Caffrey-Maffei"
+date: "10/20/2021"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Honor Code Statement
+
+We strongly encourage students to form study groups and students may discuss and work on assignments in groups. We expect that each student understands their own submission. As such, students must write their submissions independently and clearly disclose the names of all other students who were part of their study group. Additionally, lifting code or solutions directly from the internet (e.g., Google, GitHub, Stack Overflow) is a violation of the [Stanford Honor Code](https://communitystandards.stanford.edu/policies-and-guidance/honor-code). We take academic honesty and Honor Code violations extremely seriously and expect the same of students. If you have questions about what may or may not constitute an Honor Code violation, please reach out the teaching team.
+
+**Email:** l.caffreymaffei\@stanford.edu
+
+**SUID:** lacm23/06927423
+
+**Study Group:** Laura Hinton
+
+I acknowledge and agree to abide by the Honor Code.
+
+**Signed:** Lucy Caffrey-Maffei
+
+# Setup and Data Cleaning
+
+```{r import, echo=TRUE}
+# Include all code required to load packages, import, and clean data here.
+
+#load packages
+library(pastecs) 
+library(tidyverse)
+library(janitor)
+library(RColorBrewer)
+library(viridis)
+library(ggrepel)
+library(gganimate)
+library(gifski)
+library(dplyr)
+library(ggplot2)
+
+#load dataset
+vote <- read.csv("nonvoter_data.csv")
+
+#clean data
+
+##renaming variables
+vote <- vote |> 
+  rename(age = ppage, confidence_voting_machines = Q17_1, confidence_ballots_person = Q17_2, confidence_ballots_mail = Q17_3, confidence_evotes = Q17_4, novote_1 = Q29_1, novote_2 = Q29_2, novote_3 = Q29_3, novote_4 = Q29_4, novote_5 = Q29_5, novote_6 = Q29_6, novote_7 = Q29_7, novote_8 = Q29_8, novote_9 = Q29_9, novote_10 = Q29_10, vote_obstacle_1 = Q18_1, vote_obstacle_2 = Q18_2, vote_obstacle_3 = Q18_3, vote_obstacle_4 = Q18_4, vote_obstacle_5 = Q18_5, vote_obstacle_6 = Q18_6, vote_obstacle_7 = Q18_7, vote_obstacle_8 = Q18_8, vote_obstacle_9 = Q18_9, vote_obstacle_10 = Q18_10)
+
+##cleaning variables to be used for Figures 2-5
+vote <- vote  |> 
+  mutate(across(starts_with("novote"), ~(if_else(. == "Selected", 1, 0))))
+
+vote <- vote |>
+  mutate(novote_1 = if_else(is.na(novote_1), 0, novote_1))
+
+vote <- vote |>
+  mutate(novote_2 = if_else(is.na(novote_2), 0, novote_2))
+
+vote <- vote |>
+  mutate(novote_3 = if_else(is.na(novote_3), 0, novote_3))
+
+vote <- vote |>
+  mutate(novote_4 = if_else(is.na(novote_4), 0, novote_4))
+
+vote <- vote |>
+  mutate(novote_5 = if_else(is.na(novote_5), 0, novote_5))
+
+vote <- vote |>
+  mutate(novote_6 = if_else(is.na(novote_6), 0, novote_6))
+
+vote <- vote |>
+  mutate(novote_7 = if_else(is.na(novote_7), 0, novote_7))
+
+vote <- vote |>
+  mutate(novote_8 = if_else(is.na(novote_8), 0, novote_8))
+
+vote <- vote |>
+  mutate(novote_9 = if_else(is.na(novote_9), 0, novote_9))
+
+vote <- vote |>
+  mutate(novote_10 = if_else(is.na(novote_10), 0, novote_10))
+
+vote <- vote |>
+  mutate(problems_with_candidate = if_else(novote_8 == 1 | novote_1 == 1, 1, 0))
+
+vote <- vote |>
+  mutate(personal_conflicts = if_else(novote_6 == 1 | novote_5 == 1, 1, 0))
+
+vote <- vote |>
+  mutate(system_cynicism = if_else(novote_9 ==1 | novote_4 ==1, 1, 0))
+
+vote <- vote |>
+  mutate(no_personal_gain = if_else(novote_2 == 1 |novote_3 ==1 | novote_7 ==1, 1, 0))
+
+vote <- vote |>
+  mutate(no_personal_gain =na_if(no_personal_gain,0))
+
+vote <- vote |>
+  mutate(system_cynicism =na_if(system_cynicism,0))
+
+vote <- vote |>
+  mutate(personal_conflicts =na_if(personal_conflicts,0))
+
+vote <- vote |>
+  mutate(problems_with_candidate =na_if(problems_with_candidate,0))
+
+##cleaning data for personal question
+
+vote <- vote |>
+  mutate(across(starts_with("vote_obstacle_"), ~if_else(. == "Yes", 1, 0)))
+
+vote <- vote |>
+  mutate(voting_obstacles = rowSums(subset(vote, select = c(vote_obstacle_1,vote_obstacle_2, vote_obstacle_3, vote_obstacle_4, vote_obstacle_5, vote_obstacle_6, vote_obstacle_7, vote_obstacle_8, vote_obstacle_9, vote_obstacle_10)), na.rm = T))
+
+##cleaning data for Figure 1
+
+vote <- vote |>
+  mutate(across(starts_with("confidence_"), ~replace(., . =="Not at all confident", 1)))
+
+vote <- vote |>
+  mutate(across(starts_with("confidence_"), ~replace(., . =="Not very confident", 2)))
+
+vote <- vote |>
+  mutate(across(starts_with("confidence_"), ~replace(., . =="Somewhat confident", 3)))
+
+vote <- vote |>
+  mutate(across(starts_with("confidence_"), ~replace(., . =="Somewhat  confident", 3)))
+
+vote <- vote |>
+  mutate(across(starts_with("confidence_"), ~replace(., . =="Very confident", 4)))
+
+vote <- vote |>
+  mutate(confidence_voting_machines = if_else(is.na(confidence_voting_machines), "", confidence_voting_machines))
+
+vote <- vote |>
+  mutate(confidence_ballots_person = if_else(is.na(confidence_ballots_person), "", confidence_ballots_person))
+
+vote <- vote |>
+  mutate(confidence_ballots_mail = if_else(is.na(confidence_ballots_mail), "", confidence_ballots_mail)) 
+
+vote <- vote |>
+  mutate(confidence_evotes = if_else(is.na(confidence_evotes), "", confidence_evotes))  
+
+vote$confidence_voting_machines <- as.numeric(vote$confidence_voting_machines)
+vote$confidence_ballots_person <- as.numeric(vote$confidence_ballots_person)
+vote$confidence_ballots_mail <- as.numeric(vote$confidence_ballots_mail)
+vote$confidence_evotes <- as.numeric(vote$confidence_evotes)
+
+vote <- vote |>
+  mutate(voting_confidence = rowMeans(subset(vote, select = c(confidence_voting_machines, confidence_ballots_person, confidence_ballots_mail, confidence_evotes)), na.rm = T))
+
+##cleaning data for Figures 2-8
+
+vote <- vote |> 
+  mutate(age_group = case_when(age >= 22 & age <=29 ~ "22 - 29 yrs old", 
+                        age >= 30 & age <= 44 ~ "30 - 44 yrs old",
+                        age >=45 & age<=59 ~ "45 - 59 yrs old",
+                        age >= 60 ~ "60+ yrs old")) 
+
+
+##cleaning data for Figures 7-8
+
+vote <- vote |>
+  mutate(party = case_when(Q30 =="Democrat" ~ "Democrat",
+                           Q30 =="Republican" ~ "Republican"))
+
+##creating new dataframes
+voter_trends <- vote |>
+  select(age, voting_confidence, age_group, voter_category, no_personal_gain, system_cynicism, personal_conflicts, problems_with_candidate, party, race, voting_obstacles)
+
+
+
+voter_trends_dems <- filter(voter_trends, party == "Democrat")
+
+
+voter_trends_reps <- filter(voter_trends, party == "Republican")
+
+
+voter_trends_white <-filter(voter_trends, race =="White")
+
+
+
+voter_trends_black <-filter(voter_trends, race =="Black")
+```
+
+\newpage
+
+# How do voters of different ages experience and engage in voting?
+
+**How does the likelihood of voting vary by age?**
+
+```{r likelihood_age, echo=TRUE}
+# Include all code required to generate your visualization here.
+
+##bar graph 1: voter tendencies by age
+ggplot(voter_trends) + 
+  geom_bar(aes(x = age_group, 
+              fill =voter_category))+
+  labs(x = "Age Group", 
+       y = "Constituent Count",
+       title = "Figure 1. Voting Tendencies by Age", 
+       subtitle = "Source: FiveThirtyEight.com") +
+  theme_classic()+ 
+  theme(axis.text.x = element_text(color = "gray26", size = 9),
+        plot.title = element_text(color = "gray26", size = 14),
+        plot.subtitle = element_text(color = "gray26", size =12),
+        axis.text.y = element_text(color = "gray26", size = 9),
+        axis.title.x = element_text(color = "gray26", size = 12),
+        axis.title.y = element_text(color = "gray26", size = 12),
+        legend.text=element_text(color ="gray26", size = 9),
+        legend.title = element_text(color ="gray26", size = 12)) +
+   scale_fill_manual(name = "Voting Frequency", values=c("lightblue1" , "khaki","darkseagreen1"))
+
+##bar graph 2: voter tendencies by age (republicans only)
+
+ggplot(voter_trends_reps) + 
+  geom_bar(aes(x = age_group, 
+              fill =voter_category))+
+  labs(x = "Age Group", 
+       y = "Constituent Count",
+       title = "Figure 2. Republicans' Voting Tendencies by Age", 
+       subtitle = "Source: FiveThirtyEight.com") +
+  theme_classic()+ 
+  theme(axis.text.x = element_text(color = "gray26", size = 9),
+        plot.title = element_text(color = "gray26", size = 14),
+        plot.subtitle = element_text(color = "gray26", size =12),
+        axis.text.y = element_text(color = "gray26", size = 9),
+        axis.title.x = element_text(color = "gray26", size = 12),
+        axis.title.y = element_text(color = "gray26", size = 12),
+        legend.text=element_text(color ="gray26", size = 9),
+        legend.title = element_text(color ="gray26", size = 12)) +
+   scale_fill_manual(name = "Voting Frequency", values=c("lightblue1" , "khaki","darkseagreen1"))
+
+##bar graph 3: voter tendencies by age (democrats only)
+
+ggplot(voter_trends_dems) + 
+  geom_bar(aes(x = age_group, 
+              fill =voter_category))+
+  labs(x = "Age Group", 
+       y = "Constituent Count",
+       title = "Figure 3. Democrats' Voting Tendencies by Age", 
+       subtitle = "Source: FiveThirtyEight.com") +
+  theme_classic()+ 
+  theme(axis.text.x = element_text(color = "gray26", size = 9),
+        plot.title = element_text(color = "gray26", size = 14),
+        plot.subtitle = element_text(color = "gray26", size =12),
+        axis.text.y = element_text(color = "gray26", size = 9),
+        axis.title.x = element_text(color = "gray26", size = 12),
+        axis.title.y = element_text(color = "gray26", size = 12),
+        legend.text=element_text(color ="gray26", size = 9),
+        legend.title = element_text(color ="gray26", size = 12)) +
+   scale_fill_manual(name = "Voting Frequency", values=c( "lightblue1" , "khaki","darkseagreen1"))
+
+```
+
+**For people of different ages, what seem to be the reasons they do (or do not) vote?**
+
+```{r reasons_age, echo=TRUE}
+# Include all code required to generate your visualization here.
+
+##first graph
+ggplot(voter_trends) + 
+  geom_bar(aes(x = no_personal_gain, 
+              fill =age_group),
+           position = position_dodge(width=1))+
+  labs(x = "Don't Vote Because There's No Personal Gain in It", 
+       y = "Constituent Count",
+       title = "Figure 4.\nConstituents Who Don't Vote Because: No Personal Gain",
+       subtitle = "Source: FiveThirtyEight.com") +
+  theme_classic()+ 
+  theme(axis.text.x = element_blank(),
+        plot.title = element_text(color = "gray26", size = 16),
+        plot.subtitle = element_text(color = "gray26", size =12),
+        axis.text.y = element_text(color = "gray26", size = 9),
+        axis.title.x = element_text(color = "gray26", size = 12),
+        axis.title.y = element_text(color = "gray26", size = 12),
+        legend.text=element_text(color ="gray26", size = 9),
+        legend.title = element_text(color ="gray26", size = 12)) +
+  scale_x_continuous(breaks = 0:1) +
+   scale_fill_manual(name = "Age Group", values=c( "chocolate1", "mediumpurple1","goldenrod1", "lightskyblue1"))
+
+
+##second graph
+ggplot(voter_trends) + 
+  geom_bar(aes(x = system_cynicism, 
+              fill =age_group),
+           position = position_dodge(width=1))+
+  labs(x = "Don't Vote Because of Electoral System Cynicism", 
+       y = "Constituent Count",
+       title = "Figure 5.\nConstituents Who Don't Vote Because of: Electoral System Cynicism", 
+       subtitle = "Source: FiveThirtyEight.com") +
+  theme_classic()+ 
+  theme(axis.text.x = element_blank(),
+        legend.text = element_text(color = "gray26", size = 9),
+        plot.title = element_text(color = "gray26", size = 14),
+        plot.subtitle = element_text(color = "gray26", size =12),
+        axis.text.y = element_text(color = "gray26", size = 9),
+        axis.title.x = element_text(color = "gray26", size = 12),
+        axis.title.y = element_text(color = "gray26", size = 12),
+        legend.title = element_text(color ="gray26", size = 12)) +
+  scale_x_continuous(breaks = 0:1) +
+   scale_fill_manual(name = "Age Group", values=c( "chocolate1", "mediumpurple1","goldenrod1", "lightskyblue1"))
+
+##third graph
+
+ggplot(voter_trends) + 
+  geom_bar(aes(x = personal_conflicts, 
+              fill =age_group),
+           position = position_dodge(width=1))+
+  labs(x = "Didn't Vote Because of Conflicts in Personal Life", 
+       y = "Constituent Count",
+       title = "Figure 6.\nConstituents Who Didn't Vote Because of: Conflicts in Personal Life", 
+       subtitle = "Source: FiveThirtyEight.com") +
+  theme_classic()+ 
+  theme(axis.text.x = element_blank(),
+        plot.title = element_text(color = "gray26", size = 14),
+        plot.subtitle = element_text(color = "gray26", size =12),
+        axis.text.y = element_text(color = "gray26", size = 9),
+        axis.title.x = element_text(color = "gray26", size = 12),
+        axis.title.y = element_text(color = "gray26", size = 12),
+        legend.text=element_text(color ="gray26", size = 9),
+        legend.title = element_text(color ="gray26", size = 12)) +
+  scale_x_continuous(breaks = 0:1) +
+   scale_fill_manual(name = "Age Group", values=c( "chocolate1", "mediumpurple1","goldenrod1", "lightskyblue1"))
+
+##fourth graph
+ggplot(voter_trends) + 
+  geom_bar(aes(x = problems_with_candidate, 
+              fill =age_group),
+           position = position_dodge(width=1))+
+  labs(x = "Didn't Vote Because of Issues with Available Candidates", 
+       y = "Constituent Count",
+       title = "Figure 7.\nConstituents Who Didn't Vote Because of: Issues with the Candidates", 
+       subtitle = "Source: FiveThirtyEight.com") +
+  theme_classic()+ 
+  theme(axis.text.x = element_blank(),
+        plot.title = element_text(color = "gray26", size = 14),
+        plot.subtitle = element_text(color = "gray26", size =12),
+        axis.text.y = element_text(color = "gray26", size = 9),
+        axis.title.x = element_text(color = "gray26", size = 12),
+        axis.title.y = element_text(color = "gray26", size = 12),
+        legend.text=element_text(color ="gray26", size = 9),
+        legend.title = element_text(color ="gray26", size = 12)) +
+  scale_x_continuous(breaks = 0:1) +
+   scale_fill_manual(name = "Age Group", values=c( "chocolate1", "mediumpurple1","goldenrod1", "lightskyblue1"))
+```
+
+**How does confidence in the electoral process vary by age?**
+
+```{r confidence_age, echo=TRUE}
+# Include all code required to generate your visualization here.
+
+
+ggplot(voter_trends) +
+  geom_smooth(aes(x = age,
+                  y = voting_confidence),
+                  color = 'dodgerblue4') +
+  labs(title = "Figure 8. Confidence in Electoral Process by Age", 
+       subtitle ="Source: FiveThirtyEight.com",
+       x = "Age",
+       y = "Confidence in Electoral Process") +
+  theme_classic() +
+  theme(axis.text.x = element_text(color = "gray26", size = 10),
+        plot.title = element_text(color = "gray26", size = 16),
+        plot.subtitle = element_text(color = "gray26", size =12),
+        axis.text.y = element_text(color = "gray26", size = 10),
+        axis.title.x = element_text(color = "gray26", size = 12),
+        axis.title.y = element_text(color = "gray26", size = 12)) +
+  scale_y_continuous(breaks=c(2.8, 3.2),
+                     labels=c("Less\nconfident", "More\nconfident"))
+```
+
+**Discussion**
+
+*Referencing your visualizations from above, answer the three research questions. For question (3), be sure to describe and justify how you came up with your measure "confidence in the electoral process."*
+
+1.  **How does the likelihood of voting vary by age? Does this vary across the two main political parties?**
+
+    In order to answer this question, I used three variables *voter_category*, *age_group,* and *party*. *Voter_category* is a variable that comes with the original dataset and categorizes respondents as "always," "sporadic," or "rarely/never" based on how frequently they voted in the last few elections for which they were eligible. I then created the variable *age_group*, in which I assigned respondents to an age grouping (22-29, 30-44, 45-59, or 60+) based on their response to *ppage*. Lastly, I created *party*, which categorizes respondents as either "Democrat" or "Republican" if they responded with those values in question 30 in the survey.
+
+    Figure 1 shows that 60+ year-olds (followed by 22-29 year-olds) are the age category where the largest fraction of its sample size votes "always." Surpringly, 22 - 29 year-olds are also the age group with the largest percentage of its population "rarely/never" voting. Both 30-44 and 45-59 year-olds have high rates of their respective populations voting "sporadic[ally]."
+
+    These figures only change slightly when looking at voter tendencies by age across political parties. Republican 22-29 year olds, for example, are equally as likely to vote "always" as "rarely/never" (and among Republicans, they are still the age group most likely to vote rarely/never) (Figure 2). 60+ year-old Democrats remain the most likely group to vote "always."
+
+    Democrat 22-29 year-olds, on the other hand, become more likely to vote "always" than rarely/never or sporadically, although they are also the most likely group to "rarely/never" vote (Figure 3). 60+ year-old Democrats remain most likely to always vote.
+
+    In sum, although the voting behavior within age groups may vary by party, the overall voting tendencies across ages does not change by political party: 60+ year-olds are always most likely to vote "always" and 22-29 year-olds are always most likely to vote "rarely/never."
+
+2.  **For people of different ages, what seem to be the reasons they do (or do not) vote?**
+
+    I chose to examine why people of different ages *don't* vote. To do so, I created four different variables, each of which serve as the main variable on the x-axis of their respective bar graph. Each variable was based on respondents' answers to question 29, which asked respondents to give reason(s) for deciding not to vote. There were 9 possible answers, and respondents could pick as many as they found relevant to them. I narrowed these 9 possible answers down into 4 more broad categories: "all the candidates are the same" and "I didn't like any of the candidates" became "Issues with Candidates"; "I'm not sure if I can vote" and "I wanted to vote, but I didn't have time, couldn't get off work, something came up, or I forgot" became "Conflicts in Personal Life"; "I don't believe in voting" and "our system is too broken to be fixed by voting" became "Electoral System Cynicism"; and "Because of where I live, my vote doesn't matter," "no matter who wins, nothing will change for people like me" and "nobody talks about issues that are important to me personally" became "No Personal Gain." If respondents responded yes to any of the questions in one category, they were marked as falling into that category for their reason for not voting.
+
+    I then again used the variable *age_group* (explained in question 1 above) to create frequency bar graphs of responses to each of these no-vote categories by age.
+
+    Figures 4-7 show that, 30-44 year-olds are the most frequent no-voters. They seem to particularly favor not voting because (1) they get no personal gain (Figure 4) and (2) they have issues with the available candidates (Figure 7). Both 22-29 year-olds and 60+ year-olds also seem to decide not to vote mostly because they get no personal gain out of it (Figure 4). Lastly, 45-59 year-olds neglect to vote when they have issues with the candidates (Figure 7).
+
+3.  **How does confidence in the electoral process vary by age?**
+
+    The two variables I used for this visualization were *age* and *voting_confidence*. *Age* is the variable *ppage* from the original dataset renamed. I constructed the variable *age* from by averaging responses to the four different variables (Q17_1, Q17_2, Q17_3, Q17_4) that correspond to question 17 from the survey. This particular question asked respondents to rate their level of confidence (on a Likert scale) that each of the following methods were a safe and secure way of voting: in-person voting machines, paper ballots cast in person, paper ballots submitted by mail, and electronic votes submitted online or by email. Respondents chose either "very confident," "somewhat confident," "not very confident," or "not at all confident." I first recoded those responses to 1-4, with 1 being "not at all confident" and 4 being "very confident. I then created my new variable (*voting confidence*), which averaged respondents' answers to the four questions to give them an average overall score of confidence in voting processes. My definition of confidence in the electoral electoral process, thus, is how confident constituents feel in the process of voting to elect officials. Of the available measures, this seemed like the most reasonable proxy for measuring confidence in the electoral process, as voting is the most integral part of that process. I also considered using question 8 from the survey, but it focused more on respondents' trust for governing entities, which I did not find as representative of the electoral process.\
+    \
+    Figure 8 shows that, on average, confidence in the electoral process increased with age. The exception for this rule is between ages \~22 to \~38, where confidence trends downward with age; it then increases from \~39 upwards, with the sharpest slope in the association between ages \~40 to \~70. While the confidence level peaks in the oldest ages represented in the survey, it should be noted that these ages also have the most variance in their confidence.
+
+\newpage
+
+# How do people experience voting differently?
+
+```{r demo_experience, echo=TRUE}
+# Include all code required to generate your visualizations here.
+
+
+##graph 1: white americans
+ggplot(voter_trends_white) + 
+  geom_histogram(binwidth = 1, 
+                 fill = "darkcyan",
+                  aes(x = voting_obstacles))+
+  labs(x = "Incidents of Voting Obstacles", 
+       y = "White Constituent Count",
+       title = "Figure 9. Incidents of Voting Obstacles Faced by White Constituents", 
+       subtitle = "Source: FiveThirtyEight.com") +
+  theme_classic()+ 
+  theme(axis.text.x = element_text(color = "gray26", size = 9),
+        plot.title = element_text(color = "gray26", size = 14),
+        plot.subtitle = element_text(color = "gray26", size =12),
+        axis.text.y = element_text(color = "gray26", size = 9),
+        axis.title.x = element_text(color = "gray26", size = 12),
+        axis.title.y = element_text(color = "gray26", size = 12))+
+  scale_x_continuous(breaks=c(0, 1,2,3,4,5,6,7,8,9,10),
+                     labels=c("0","1","2","3","4","5","6","7","8","9","10"))
+
+##graph 2: black americans
+
+ggplot(voter_trends_black) + 
+  geom_histogram(binwidth = 1, 
+                 fill = "darkblue",
+                  aes(x = voting_obstacles))+
+  labs(x = "Incidents of Voting Obstacles", 
+       y = "Black Constituent Count",
+       title = "Figure 10. Incidents of Voting Obstacles Faced by Black Constituents", 
+       subtitle = "Source: FiveThirtyEight.com") +
+  theme_classic()+ 
+  theme(axis.text.x = element_text(color = "gray26", size = 9),
+        plot.title = element_text(color = "gray26", size = 14),
+        plot.subtitle = element_text(color = "gray26", size =12),
+        axis.text.y = element_text(color = "gray26", size = 9),
+        axis.title.x = element_text(color = "gray26", size = 12),
+        axis.title.y = element_text(color = "gray26", size = 12))+
+  scale_x_continuous(breaks=c(0, 1,2,3,4,5,6,7,8,9,10),
+                     labels=c("0","1","2","3","4","5","6","7","8","9","10"))
+
+
+
+```
+
+**Demographic Group:** race (specifically looking at white and Black voters)
+
+**Discussion**
+
+In this analysis, I ask if the number of voting obstacles constituents encounter while voting depends on their race. To answer this question, I created a new variable, *voting_obstacles*. To do so, I summed the number of situations of the following respondents had reported facing when trying to vote (question 18 on the survey): was told they did not have the correct identification, could not find the polling place, missed the voter registration deadline, was unable to physically access the polling place, could not obtain assistance to fill out a ballot, had to cast a provisional ballot, couldn't get off work to vote when polls were open, waited in line to vote for more than an hour, was told name was not on the list even though they were registered, and did not receive absentee or mail-in ballot in time. So, if respondents reported having two of those incidents having happened to them, they would get a 2 for *voting_obstacles.*
+
+I then created two new data frames: each contained all the same objects as the dataframes I used in my other analysis, but one was filtered for only Black respondents and one was filtered for only white respondents. The results were Figures 9 and 10.
+
+While both Black and white respondents were most likely to have never faced any incident, Figure 10 shows that Black constituents were more likely than were whites to have faced 1 or more incidents. Conversely, whites were more likely than their Black peers to have never experienced any type of obstacle in their voting process.
